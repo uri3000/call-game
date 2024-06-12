@@ -5,7 +5,8 @@ module.exports = {
   entry: path.join(__dirname, './client/index.tsx'),
   output: {
     path: path.resolve(__dirname, 'dist/client'), // Output directory for client build
-    filename: 'bundle.js'
+    filename: 'bundle.js',
+    publicPath: '/'
   },
   mode: process.env.NODE_ENV || 'development', // Use 'production' mode for production builds
   resolve: {
