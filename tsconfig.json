@@ -100,6 +100,6 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
-  "include": ["server/**/*", "client/**/*", "custom.d.ts"],
+  "include": ["server/**/*", "client/**/*", "custom.d.ts", "postcss.config.js", "postcss.config.js"],
   "exclude": ["node_modules"]
 }
