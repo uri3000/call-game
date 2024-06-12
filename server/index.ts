@@ -3,7 +3,7 @@ import express, { ErrorRequestHandler } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 const app = express();
-import { streamGptText } from './streamGptText.js';
+import { streamGptText } from './streamGptText';
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;

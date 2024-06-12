@@ -40,7 +40,7 @@ const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const app = (0, express_1.default)();
-const streamGptText_js_1 = require("./streamGptText.js");
+const streamGptText_1 = require("./streamGptText");
 dotenv_1.default.config();
 const PORT = process.env.PORT || 3000;
 PlayHT.init({
@@ -66,7 +66,7 @@ app.get('/say-prompt', (req, res, next) => __awaiter(void 0, void 0, void 0, fun
         }
         res.setHeader('Content-Type', 'audio/mpeg');
         // Create a text stream from ChatGPT responses
-        const gptStream = yield (0, streamGptText_js_1.streamGptText)(prompt);
+        const gptStream = yield (0, streamGptText_1.streamGptText)(prompt);
         // Generate a stream with PlayHT's API
         const stream = yield PlayHT.stream(gptStream, {
             voiceEngine: 'PlayHT2.0-turbo',
