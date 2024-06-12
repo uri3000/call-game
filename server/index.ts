@@ -1,12 +1,13 @@
 import express, { ErrorRequestHandler } from 'express';
+import path from 'path';
 const app = express();
 const PORT = 3000;
+
+app.use(express.static(path.join(__dirname, "public")));
 
 app.get('/test', (req, res) => {
   return res.status(200).json('Hello World');
 });
-
-app.use('*', (req, res) => res.status(404).json('Invalid request'));
 
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   const defaultError = {
@@ -22,6 +23,11 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
 
 app.use(errorHandler);
 
+
+app.get("*", function (req, res) {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.listen(PORT, () => {
-  return console.log('\x1b[36m%s\x1b[0m', `Server listening at port: ${PORT}`);
+  return console.log(`Server is running on port ${PORT}`);
 });

@@ -4,10 +4,10 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   entry: path.join(__dirname, './client/index.tsx'),
   output: {
-    path: path.resolve(__dirname, 'dist/client'), // Output directory for client build
+    path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js'
   },
-  mode: process.env.NODE_ENV || 'development', // Use 'production' mode for production builds
+  mode: 'development',
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx']
   },
@@ -38,14 +38,14 @@ module.exports = {
   },
   devServer: {
     static: {
-      directory: path.join(__dirname, './dist/client') // Serve static files from dist/client
+      directory: path.join(__dirname, './dist')
     },
     historyApiFallback: true,
     port: 8080,
     hot: true,
     compress: true,
     proxy: {
-      '/api': 'http://localhost:3000' // Proxy API requests to backend server
+      '/**': 'http://localhost:3000'
     },
     watchFiles: ['client/**']
   }
