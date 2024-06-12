@@ -3,7 +3,7 @@ import path from 'path';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "dist/client")));
 
 app.get('/test', (req, res) => {
   return res.status(200).json('Hello World');
@@ -23,9 +23,8 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
 
 app.use(errorHandler);
 
-
-app.get("*", function (req, res) {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/client', 'index.html'));
 });
 
 app.listen(PORT, () => {
