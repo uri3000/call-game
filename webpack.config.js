@@ -33,7 +33,13 @@ module.exports = {
       {
         test: /\.(ts|tsx)$/,
         exclude: /node_modules/,
-        use: ['ts-loader']
+        use: ['ts-loader', {
+          loader: 'file-loader',
+          options: {
+              name: '[name].[ext]',
+              outputPath: 'assets/'
+          }
+      }]
       }
     ]
   },
