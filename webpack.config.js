@@ -33,13 +33,21 @@ module.exports = {
       {
         test: /\.(ts|tsx)$/,
         exclude: /node_modules/,
-        use: ['ts-loader', {
+        use: 'ts-loader'
+      },
+      {
+        test: /\.svg$/,  // Add this rule for handling SVG files
+        use: {
           loader: 'file-loader',
           options: {
-              name: '[name].[ext]',
-              outputPath: 'assets/'
+            name: '[name].[ext]',
+            outputPath: 'assets/'
           }
-      }]
+        }
+      },
+      {
+        test: /\.css$/,  // Add this rule for handling CSS files
+        use: ['style-loader', 'css-loader']
       }
     ]
   },
