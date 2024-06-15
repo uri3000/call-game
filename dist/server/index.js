@@ -39,10 +39,15 @@ const PlayHT = __importStar(require("playht"));
 const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
-const app = (0, express_1.default)();
 const streamGptText_1 = require("./streamGptText");
+const { AssemblyAI } = require('assemblyai');
+const cors = require('cors');
 dotenv_1.default.config();
+const app = (0, express_1.default)();
+app.use(express_1.default.json());
+// app.use(cors());
 const PORT = process.env.PORT || 3000;
+const aaiClient = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY });
 PlayHT.init({
     apiKey: process.env.PLAYHT_API_KEY ||
         (function () {
@@ -54,6 +59,15 @@ PlayHT.init({
         })(),
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "../client")));
+app.get('/aatoken', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const token = yield aaiClient.realtime.createTemporaryToken({ expires_in: 3600 });
+        res.json({ token });
+    }
+    catch (error) {
+        res.status(500).json({ error });
+    }
+}));
 app.get('/test', (req, res) => {
     return res.status(200).json('Hello World');
 });

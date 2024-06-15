@@ -60,7 +60,10 @@ module.exports = {
     hot: true,
     compress: true,
     proxy: {
-      '/api': 'http://localhost:3000' // Proxy API requests to backend server
+      '/api': {
+        target: 'http://localhost:3000',
+        pathRewrite: {'^/api' : ''} // Remove '/api' prefix before forwarding to the backend
+      }
     },
     watchFiles: ['client/**']
   }

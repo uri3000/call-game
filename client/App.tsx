@@ -1,23 +1,151 @@
 import React from 'react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { RealtimeTranscriber } from 'assemblyai';
+import { useDebouncedCallback } from 'use-debounce';
+import RecordRTC from 'recordrtc';
 import './App.css';
 import { PlayhtLogo } from './components/PlayhtLogo';
 import { Spinner } from './components/Spinner';
 
 const DEFAULT_TEXT = 'Tell me a joke about AI.';
 
+interface Texts {
+  [key: number]: string;
+}
+
 function App() {
   const [audioSrc, setAudioSrc] = useState<string>('');
-  const [prompt, setPrompt] = useState<string>(DEFAULT_TEXT);
   const [loading, setLoading] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const realtimeTranscriber = useRef<RealtimeTranscriber|null>(null)
+  const recorder = useRef<RecordRTC|null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [transcript, setTranscript] = useState('')
 
-  const sayPrompt = () => {
+  const getToken = async () => {
+    const response = await fetch('/api/aatoken');
+    const data = await response.json();
+
+    if (data.error) {
+      alert(data.error)
+    }
+
+    return data.token;
+  };
+
+  const debouncedTranscription = useDebouncedCallback(
+    async () => {
+      console.log("Sending text: ", transcript);
+      recorder?.current?.pauseRecording();
+      sayPrompt(transcript);
+    },
+
+    1500
+  );
+
+  useEffect(() => {
+    if (transcript.length > 0) {
+      debouncedTranscription();
+    }
+   }, [transcript]);
+
+  const startTranscription = async () => {
+    realtimeTranscriber.current = new RealtimeTranscriber({
+      token: await getToken(),
+      sampleRate: 16_000,
+    });
+
+    if (!realtimeTranscriber.current) {
+      console.error("Failed to initialize the RealtimeTranscriber.");
+      return; // Exit if not properly initialized
+    }
+
+    const texts: Texts = {};
+    realtimeTranscriber.current.on('transcript', transcript => {
+      let msg = '';
+      texts[transcript.audio_start] = transcript.text;
+      const keys = Object.keys(texts).map(Number);;
+      keys.sort((a, b) => a - b);
+      for (const key of keys) {
+        if (texts[key]) {
+          msg += ` ${texts[key]}`
+          console.log(msg)
+        }
+      }
+      
+      setTranscript(msg)
+    });
+
+    realtimeTranscriber.current.on('error', event => {
+      console.error(event);
+
+      if (realtimeTranscriber.current) {
+        realtimeTranscriber.current.close();
+        realtimeTranscriber.current = null;
+      }
+    });
+
+    realtimeTranscriber.current.on('close', (code, reason) => {
+      console.log(`Connection closed: ${code} ${reason}`);
+      realtimeTranscriber.current = null;
+    });
+
+    await realtimeTranscriber.current.connect();
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        recorder.current = new RecordRTC(stream, {
+          type: 'audio',
+          mimeType: 'audio/webm;codecs=pcm',
+          recorderType: RecordRTC.StereoAudioRecorder,
+          timeSlice: 250,
+          desiredSampRate: 16000,
+          numberOfAudioChannels: 1,
+          bufferSize: 4096,
+          audioBitsPerSecond: 128000,
+          ondataavailable: async (blob) => {
+            if(!realtimeTranscriber.current) return;
+            const buffer = await blob.arrayBuffer();
+            realtimeTranscriber.current.sendAudio(buffer);
+          },
+        });
+        recorder.current.startRecording();
+      })
+      .catch((err) => console.error(err));
+
+    setIsRecording(true)
+  }
+
+  const endTranscription = async (event: React.MouseEvent<HTMLButtonElement> | null) => {
+    event && event.preventDefault();
+    setIsRecording(false)
+
+    if (realtimeTranscriber && realtimeTranscriber.current) {
+      await realtimeTranscriber.current.close();
+      realtimeTranscriber.current = null;
+    }
+
+    if (recorder && recorder.current) {
+      recorder.current.pauseRecording();
+      recorder.current = null;
+    }
+  }
+
+  const sayPrompt = (prompt: string) => {
     if (!audioRef.current) return;
+
     const onError = () => {
       setLoading(false);
       console.error('Error loading audio');
     };
+
+    const onAudioEnd = () => {
+      console.log('Audio playback completed');
+      setLoading(false);
+      recorder?.current?.resumeRecording();
+      setTranscript('');
+    };
+
     try {
       const audioElement = audioRef.current;
       audioElement.pause();
@@ -25,7 +153,7 @@ function App() {
 
       const searchParams = new URLSearchParams();
       searchParams.set('prompt', prompt);
-      setAudioSrc(`/say-prompt?${searchParams.toString()}`);
+      setAudioSrc(`/api/say-prompt?${searchParams.toString()}`);
       setLoading(true);
 
       audioElement.load();
@@ -37,10 +165,12 @@ function App() {
 
       audioElement.addEventListener('loadeddata', playAudio);
       audioElement.addEventListener('error', onError);
+      audioElement.addEventListener('ended', onAudioEnd);
 
       return () => {
         audioElement.removeEventListener('loadeddata', playAudio);
         audioElement.removeEventListener('error', onError);
+        audioElement.removeEventListener('ended', onAudioEnd);
       };
     } catch (error) {
       onError();
@@ -48,31 +178,26 @@ function App() {
   };
 
   return (
-    <>
-      <PlayhtLogo />
-      <h1 className="pb-8 max-sm:text-2xl font-bold">PlayHT SDK ChatGPT Example</h1>
-
-      <div className="font-bold text-lg pb-4">Enter prompt for ChatGPT</div>
-      <textarea
-        className="w-full h-32 bg-inherit resize-none border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-      />
-
-      <button
-        className="disabled:text-neutral-500 mt-6 mb-8 py-4 px-8 bg-green-600 text-white font-bold text-xl enabled:hover:bg-green-400 transition-all"
-        onClick={sayPrompt}
-        disabled={loading || !prompt || prompt.length === 0}
-      >
-        <div className="inline-flex h-full w-full items-center justify-center">
-          {loading && <Spinner />} <span className="bold">Speak</span>
-        </div>
-      </button>
-
+    <div className="App">
+      <header>
+        <h1 className="header__title">Real-Time Transcription</h1>
+        <p className="header__sub-title">Try AssemblyAI's new real-time transcription endpoint!</p>
+      </header>
+      <div className="real-time-interface">
+        <p id="real-time-title" className="real-time-interface__title">Click start to begin recording!</p>
+        {isRecording ? (
+          <button className="real-time-interface__button" onClick={endTranscription}>Stop recording</button>
+        ) : (
+          <button className="real-time-interface__button" onClick={startTranscription}>Record</button>
+        )}
+      </div>
+      <div className="real-time-interface__message">
+        {transcript}
+      </div>
       <p>
         <audio className="w-full" ref={audioRef} src={audioSrc} controls />
       </p>
-    </>
+    </div>
   );
 }
 

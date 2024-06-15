@@ -2,11 +2,17 @@ import * as PlayHT from 'playht';
 import express, { ErrorRequestHandler } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
-const app = express();
 import { streamGptText } from './streamGptText';
-dotenv.config();
+const { AssemblyAI } = require('assemblyai');
+const cors = require('cors');
 
+dotenv.config();
+const app = express();
+app.use(express.json());
+// app.use(cors());
 const PORT = process.env.PORT || 3000;
+
+const aaiClient = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY });
 
 PlayHT.init({
   apiKey:
@@ -22,6 +28,15 @@ PlayHT.init({
 });
 
 app.use(express.static(path.join(__dirname, "../client")));
+
+app.get('/aatoken', async (req, res) => {
+  try {
+    const token = await aaiClient.realtime.createTemporaryToken({ expires_in: 3600 });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error });
+  }
+});
 
 app.get('/test', (req, res) => {
   return res.status(200).json('Hello World');
@@ -65,6 +80,7 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
 };
 
 app.use(errorHandler);
+
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client', 'index.html'));
