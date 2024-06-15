@@ -21,10 +21,12 @@ function App() {
   const recorder = useRef<RecordRTC|null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [token, setToken] = useState<string>('')
 
   const getToken = async () => {
     const response = await fetch('/api/aatoken');
     const data = await response.json();
+    setToken(data.token);
 
     if (data.error) {
       alert(data.error)
@@ -33,25 +35,27 @@ function App() {
     return data.token;
   };
 
+  useEffect(() => { getToken(); }, []);
+
   const debouncedTranscription = useDebouncedCallback(
     async () => {
-      console.log("Sending text: ", transcript);
-      recorder?.current?.pauseRecording();
-      sayPrompt(transcript);
+        console.log("Sending text: ", transcript);
+        await endTranscription(null);
+        sayPrompt(transcript);
     },
 
     1500
   );
 
   useEffect(() => {
-    if (transcript.length > 0) {
+    if (transcript?.length > 0) {
       debouncedTranscription();
     }
    }, [transcript]);
 
   const startTranscription = async () => {
     realtimeTranscriber.current = new RealtimeTranscriber({
-      token: await getToken(),
+      token: token,
       sampleRate: 16_000,
     });
 
@@ -63,11 +67,12 @@ function App() {
     const texts: Texts = {};
     realtimeTranscriber.current.on('transcript', transcript => {
       let msg = '';
+
       texts[transcript.audio_start] = transcript.text;
       const keys = Object.keys(texts).map(Number);;
       keys.sort((a, b) => a - b);
       for (const key of keys) {
-        if (texts[key]) {
+        if (texts[key]) { 
           msg += ` ${texts[key]}`
           console.log(msg)
         }
@@ -119,15 +124,16 @@ function App() {
   const endTranscription = async (event: React.MouseEvent<HTMLButtonElement> | null) => {
     event && event.preventDefault();
     setIsRecording(false)
+    setTranscript('');
+
+    if (recorder && recorder.current) {
+      recorder.current.stopRecording();
+      recorder.current = null;
+    }
 
     if (realtimeTranscriber && realtimeTranscriber.current) {
       await realtimeTranscriber.current.close();
       realtimeTranscriber.current = null;
-    }
-
-    if (recorder && recorder.current) {
-      recorder.current.pauseRecording();
-      recorder.current = null;
     }
   }
 
@@ -142,8 +148,8 @@ function App() {
     const onAudioEnd = () => {
       console.log('Audio playback completed');
       setLoading(false);
-      recorder?.current?.resumeRecording();
       setTranscript('');
+      startTranscription();
     };
 
     try {
