@@ -22,6 +22,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [token, setToken] = useState<string>('')
+  const mediaStreamRef = useRef<MediaStream|null>(null);
 
   const getToken = async () => {
     const response = await fetch('/api/aatoken');
@@ -36,22 +37,6 @@ function App() {
   };
 
   useEffect(() => { getToken(); }, []);
-
-  const debouncedTranscription = useDebouncedCallback(
-    async () => {
-        console.log("Sending text: ", transcript);
-        await endTranscription(null);
-        sayPrompt(transcript);
-    },
-
-    1500
-  );
-
-  useEffect(() => {
-    if (transcript?.length > 0) {
-      debouncedTranscription();
-    }
-   }, [transcript]);
 
   const startTranscription = async () => {
     realtimeTranscriber.current = new RealtimeTranscriber({
@@ -99,6 +84,7 @@ function App() {
 
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((stream) => {
+        mediaStreamRef.current = stream;
         recorder.current = new RecordRTC(stream, {
           type: 'audio',
           mimeType: 'audio/webm;codecs=pcm',
@@ -124,17 +110,24 @@ function App() {
   const endTranscription = async (event: React.MouseEvent<HTMLButtonElement> | null) => {
     event && event.preventDefault();
     setIsRecording(false)
-    setTranscript('');
 
-    if (recorder && recorder.current) {
-      recorder.current.stopRecording();
-      recorder.current = null;
+    if (recorder.current) {
+      await recorder.current.stopRecording(() => {
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());  // Stop each track of the stream
+          mediaStreamRef.current = null;
+        }
+        recorder.current = null;
+      });
     }
-
+  
     if (realtimeTranscriber && realtimeTranscriber.current) {
       await realtimeTranscriber.current.close();
       realtimeTranscriber.current = null;
     }
+
+    sayPrompt(transcript);
+    setTranscript('');
   }
 
   const sayPrompt = (prompt: string) => {
@@ -147,9 +140,6 @@ function App() {
 
     const onAudioEnd = () => {
       console.log('Audio playback completed');
-      setLoading(false);
-      setTranscript('');
-      startTranscription();
     };
 
     try {
